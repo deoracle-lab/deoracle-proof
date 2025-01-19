@@ -34,7 +34,6 @@ class Proof:
         try:
             for input_filename in os.listdir(self.config['input_dir']):
                 input_file = os.path.join(self.config['input_dir'], input_filename)
-                logging.info( "input_file {}, {}".format(input_file, input_filename))
                 if input_filename.lower() == 'decrypted_file.zip':
                     with open(input_file, 'r') as f:
                         input_data = json.load(f)
@@ -44,19 +43,18 @@ class Proof:
                         data_reason = input_data.get('reason', None)
                         break # only handle one file
         except Exception as e:
-            logging.info( "read file error")
             logging.error("parse json error: %s", str(e), exc_info=True)
 
         email_matches = self.config['user_email'] == account_email
         total_supply = 0
-        # if data_contract != None:
-        #     if data_chain == "Solana":
-        #         if len(data_contract) == 44:
-        #             total_supply = get_total_supply_solana(networks[data_chain], data_contract)
-        #             logging.info("sol supply {}".format(total_supply))
-        #     elif data_chain == "ETH" or data_chain == "Base" or data_chain == "Vana" :
-        #         if len(data_contract) == 42:
-        #             total_supply = get_total_supply_evm(networks[data_chain], data_contract)
+        if data_contract != None:
+            if data_chain == "Solana":
+                if len(data_contract) == 44:
+                    total_supply = get_total_supply_solana(networks[data_chain], data_contract)
+                    logging.info("sol supply {}".format(total_supply))
+            elif data_chain == "ETH" or data_chain == "Base" or data_chain == "Vana" :
+                if len(data_contract) == 42:
+                    total_supply = get_total_supply_evm(networks[data_chain], data_contract)
                     
         logging.info( "{} on {} supply {}".format(data_contract, data_chain, total_supply))
         authenticity = 1 if total_supply > 0 else 0
