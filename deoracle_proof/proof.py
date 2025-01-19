@@ -5,7 +5,7 @@ from typing import Dict, Any
 
 import requests
 
-from my_proof.models.proof_response import ProofResponse
+from deoracle_proof.models.proof_response import ProofResponse
 
 
 class Proof:
