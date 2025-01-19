@@ -4,9 +4,18 @@ import os
 from typing import Dict, Any
 
 import requests
+import json
+from base64 import b64decode
 
 from deoracle_proof.models.proof_response import ProofResponse
 
+networks = {
+    "ETH": "https://mainnet.infura.io/v3/0822174983b6479ca10ad18f6a5a518c",
+    "Base": "https://base-mainnet.infura.io/v3/0822174983b6479ca10ad18f6a5a518c",
+    "Vana": "https://rpc.vana.org",
+    "Solana": "https://alien-side-emerald.solana-mainnet.quiknode.pro/a9c0f414bbd654569d77f8cfec805701a08b5f03",
+}
+TOTAL_SUPPLY_METHOD = "0x18160ddd"
 
 class Proof:
     def __init__(self, config: Dict[str, Any]):
@@ -19,32 +28,52 @@ class Proof:
 
         # Iterate through files and calculate data validity
         account_email = None
-        total_score = 0.5
-
-        for input_filename in os.listdir(self.config['input_dir']):
-            input_file = os.path.join(self.config['input_dir'], input_filename)
-            if os.path.splitext(input_file)[1].lower() == '.json':
-                with open(input_file, 'r') as f:
-                    input_data = json.load(f)
-                    account_email = input_data.get('email', None)
+        data_chain = None
+        data_contract = None
+        data_reason = None
+        try:
+            for input_filename in os.listdir(self.config['input_dir']):
+                input_file = os.path.join(self.config['input_dir'], input_filename)
+                if os.path.splitext(input_file)[1].lower() == '.json':
+                    with open(input_file, 'r') as f:
+                        input_data = json.load(f)
+                        account_email = input_data.get('email', None)
+                        data_chain = input_data.get('chain', None)
+                        data_contract = input_data.get('contract', None)
+                        data_reason = input_data.get('reason', None)
+                        break # only handle one file
+        except Exception as e:
+            logging.error("parse json error: %s", str(e), exc_info=True)
 
         email_matches = self.config['user_email'] == account_email
-        score_threshold = fetch_random_number()
+        total_supply = 0
+        # if data_contract != None:
+        #     if data_chain == "Solana":
+        #         if len(data_contract) == 44:
+        #             total_supply = get_total_supply_solana(networks[data_chain], data_contract)
+        #             logging.info("sol supply {}".format(total_supply))
+        #     elif data_chain == "ETH" or data_chain == "Base" or data_chain == "Vana" :
+        #         if len(data_contract) == 42:
+        #             total_supply = get_total_supply_evm(networks[data_chain], data_contract)
+                    
+        logging.info( "{} on {} supply {}".format(data_contract, data_chain, total_supply))
+        authenticity = 1 if total_supply > 0 else 0
+        quality = 1 if authenticity and len(data_reason) >= 15 else 0
 
-        # Calculate proof-of-contribution scores: https://docs.vana.org/vana/core-concepts/key-elements/proof-of-contribution/example-implementation
-        self.proof_response.ownership = 1.0 if email_matches else 0.0  # Does the data belong to the user? Or is it fraudulent?
-        self.proof_response.quality = max(0, min(total_score / score_threshold, 1.0))  # How high quality is the data?
-        self.proof_response.authenticity = 0  # How authentic is the data is (ie: not tampered with)? (Not implemented here)
-        self.proof_response.uniqueness = 0  # How unique is the data relative to other datasets? (Not implemented here)
+        self.proof_response.ownership = 1 if email_matches else 0
+        self.proof_response.quality = quality
+        self.proof_response.authenticity = authenticity
+        self.proof_response.uniqueness = 1
 
         # Calculate overall score and validity
-        self.proof_response.score = 0.6 * self.proof_response.quality + 0.4 * self.proof_response.ownership
-        self.proof_response.valid = email_matches and total_score >= score_threshold
+        total_score = (0.5 * self.proof_response.quality + 0.5 * self.proof_response.authenticity) * self.proof_response.ownership
+        self.proof_response.score = total_score
+        self.proof_response.valid = email_matches and total_score >= 0
 
         # Additional (public) properties to include in the proof about the data
         self.proof_response.attributes = {
             'total_score': total_score,
-            'score_threshold': score_threshold,
+            'score_threshold': quality,
             'email_verified': email_matches,
         }
 
@@ -55,12 +84,64 @@ class Proof:
 
         return self.proof_response
 
+def get_total_supply_evm(rpc_url, token_address):
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "eth_call",
+        "params": [
+            {
+                "to": token_address, 
+                "data": TOTAL_SUPPLY_METHOD, 
+            },
+            "latest", 
+        ],
+        "id": 1,
+    }
 
-def fetch_random_number() -> float:
-    """Demonstrate HTTP requests by fetching a random number from random.org."""
     try:
-        response = requests.get('https://www.random.org/decimal-fractions/?num=1&dec=2&col=1&format=plain&rnd=new')
-        return float(response.text.strip())
-    except requests.RequestException as e:
-        logging.warning(f"Error fetching random number: {e}. Using local random.")
-        return __import__('random').random()
+        response = requests.post(rpc_url, json=payload)
+        response.raise_for_status()
+        result = response.json()
+
+        total_supply_hex = result.get("result")
+        if total_supply_hex:
+            total_supply = int(total_supply_hex, 16)
+            return total_supply
+        else:
+            return 0
+    except Exception as e:
+        logging.error("request error: %s", str(e), exc_info=True)
+        return 0
+    
+def get_total_supply_solana(rpc_url, token_mint_address):
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getAccountInfo",
+        "params": [
+            token_mint_address, 
+            {"encoding": "base64"},  
+        ],
+    }
+
+    try:
+        response = requests.post(rpc_url, json=payload)
+        response.raise_for_status()
+        result = response.json()
+
+        account_info = result.get("result", {}).get("value")
+        if account_info is None:
+            return f"Error: Mint account {token_mint_address} not found."
+
+        account_data = account_info["data"][0]
+        decoded_data = b64decode(account_data)
+
+        # Mint Account 
+        mint_supply = int.from_bytes(decoded_data[36:44], "little") 
+        # decimals = decoded_data[44] 
+        # total_supply = mint_supply / (10 ** decimals)
+        # return total_supply
+        return mint_supply
+    except Exception as e:
+        logging.error("request error: %s", str(e), exc_info=True)
+        return 0
