@@ -34,8 +34,8 @@ class Proof:
         try:
             for input_filename in os.listdir(self.config['input_dir']):
                 input_file = os.path.join(self.config['input_dir'], input_filename)
-                logging.info( "input_file {}".format(input_file))
-                if os.path.splitext(input_file)[1].lower() == '.json':
+                logging.info( "input_file {}, {}".format(input_file, input_filename))
+                if input_filename.lower() == 'decrypted_file.zip':
                     with open(input_file, 'r') as f:
                         input_data = json.load(f)
                         account_email = input_data.get('email', None)
