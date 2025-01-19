@@ -34,6 +34,7 @@ class Proof:
         try:
             for input_filename in os.listdir(self.config['input_dir']):
                 input_file = os.path.join(self.config['input_dir'], input_filename)
+                logging.info( "input_file {}".format(input_file))
                 if os.path.splitext(input_file)[1].lower() == '.json':
                     with open(input_file, 'r') as f:
                         input_data = json.load(f)
@@ -43,6 +44,7 @@ class Proof:
                         data_reason = input_data.get('reason', None)
                         break # only handle one file
         except Exception as e:
+            logging.info( "read file error")
             logging.error("parse json error: %s", str(e), exc_info=True)
 
         email_matches = self.config['user_email'] == account_email
