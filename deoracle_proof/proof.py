@@ -36,14 +36,14 @@ class Proof:
         try:
             for input_filename in os.listdir(self.config['input_dir']):
                 input_file = os.path.join(self.config['input_dir'], input_filename)
-                if input_filename.lower() == 'decrypted_file.zip' or input_filename.lower() == 'token.json':
+                if input_filename.lower() == 'decrypted_file.zip':
                     with open(input_file, 'r') as f:
                         input_data = json.load(f)
                         account_email = input_data.get('email', "")
                         data_chain = input_data.get('chain', "")
                         data_contract = input_data.get('contract', "")
                         data_reason = input_data.get('reason', "")
-                        break # only handle one file
+                        break
         except Exception as e:
             logging.error("parse json error: %s", str(e), exc_info=True)
 
@@ -65,7 +65,7 @@ class Proof:
         data_reason = data_reason.strip();
 
         authenticity = 1 if total_supply > 0 else 0
-        quality = 1 if len(data_reason) >= 15 else 0.2
+        quality = 1 if len(data_reason) >= 15 else 0.5
 
         uniqueness = 0
         if ownership and authenticity:
@@ -138,7 +138,6 @@ def get_total_supply_solana(rpc_url, token_mint_address):
             {"encoding": "base64"},  
         ],
     }
-    logging.info("rpc_url " + rpc_url)
     try:
         response = requests.post(rpc_url, json=payload, timeout=3)
         response.raise_for_status()
