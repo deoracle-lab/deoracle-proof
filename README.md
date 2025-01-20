@@ -66,9 +66,9 @@ To run the proof locally for testing, you can use Docker:
 docker build -t deoracle-proof .
 docker run \
   --rm \
-  --volume $(pwd)/input:/input \
-  --volume $(pwd)/output:/output \
-  --env USER_EMAIL=user123@gmail.com \
+  --volume $(pwd)/demo/input:/input \
+  --volume $(pwd)/demo/output:/output \
+  --env USER_EMAIL=dev@test.com \
   deoracle-proof
 ```
 
