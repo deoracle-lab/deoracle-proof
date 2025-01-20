@@ -69,7 +69,7 @@ class Proof:
 
         uniqueness = 0
         if ownership and authenticity:
-            hash_string = f"{data_chain}-{data_contract}-{data_reason}"
+            hash_string = f"{account_email}-{data_chain}-{data_contract}"
             hash_object = hashlib.sha256(hash_string.encode('utf-8'))
             is_repeat = check_hash_repeat(api_url, hash_object.hexdigest())
             if not is_repeat:
