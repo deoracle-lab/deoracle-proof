@@ -36,7 +36,7 @@ class Proof:
         try:
             for input_filename in os.listdir(self.config['input_dir']):
                 input_file = os.path.join(self.config['input_dir'], input_filename)
-                if input_filename.lower() == 'decrypted_file.zip':
+                if input_filename.lower() == 'decrypted_file.zip' or input_filename.lower() == 'token.json':
                     with open(input_file, 'r') as f:
                         input_data = json.load(f)
                         account_email = input_data.get('email', "")
@@ -151,6 +151,17 @@ def get_total_supply_solana(rpc_url, token_mint_address):
         account_data = account_info["data"][0]
         decoded_data = b64decode(account_data)
 
+        if len(decoded_data) < 82:
+            logging.error("account not mint, invalid length")
+            return 0
+        
+        
+        decimals = decoded_data[44]
+        is_initialized = decoded_data[45] == 1
+        if not is_initialized or decimals <= 0 or decimals > 18:
+            logging.error(f"account not mint, init {is_initialized} decimals {decimals}")
+            return 0
+        
         # Mint Account 
         mint_supply = int.from_bytes(decoded_data[36:44], "little") 
         # decimals = decoded_data[44] 
